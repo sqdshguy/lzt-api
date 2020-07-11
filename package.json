@@ -1,0 +1,17 @@
+{
+  "name": "lzt-api",
+  "version": "1.0.1",
+  "description": "",
+  "main": "app.js",
+  "dependencies": {
+    "express": "^4.17.1",
+    "node-html-parser": "^1.2.20",
+    "puppeteer": "^5.0.0"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "start": "node app.js"
+  },
+  "author": "Mrsasha45op",
+  "license": "MIT"
+}
