@@ -1,3 +1,12 @@
+/*
+
+Lolzteam Unofficial API
+by Mrsasha45op
+MIT License
+
+*/
+
+
 const express = require("express");
 const puppeteer = require("puppeteer");
 const { parse } = require("node-html-parser");
