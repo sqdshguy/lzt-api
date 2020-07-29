@@ -41,10 +41,10 @@ app.get("/api/latest", async (req, res) => {
     const time = post.querySelector(".DateTime").rawText;
     const commentCount = post.querySelector(".discussionListItem--replyCount").rawText;
     postJson.push({
-      title: title,
-      author: authorUsername,
-      time: time,
-      commentCount: commentCount,
+      title,
+      authorUsername,
+      time,
+      commentCount
     });
   }
   res.json(postJson);
