@@ -19,6 +19,7 @@ const app = express();
 
 // Security fixes
 app.use(helmet());
+app.use(cors())
 
 // Rate limit API
 const limiter = rateLimit({
