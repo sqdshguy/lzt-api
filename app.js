@@ -12,6 +12,7 @@ const helmet = require("helmet");
 const puppeteer = require("puppeteer");
 const rateLimit = require("express-rate-limit");
 const middlewares = require("./middlewares");
+const cors = require("cors");
 const { parse } = require("node-html-parser");
 
 
@@ -35,10 +36,12 @@ app.get("/", (req, res) => {
 let cachedData;
 let cacheTime;
 
+let userCache = new Map();
+
 
 app.get("/api/latest", limiter, async (req, res) => {
   // Cache header for browsers
-  res.set('Cache-Control', 'public, max-age=300, s-maxage=600') 
+  res.set('Cache-Control', 'public, max-age=300, s-maxage=600');
 
   // Manual cache
   if (cacheTime && cacheTime > Date.now() - 30 * 1000) {
@@ -91,18 +94,19 @@ app.get("/api/latest", limiter, async (req, res) => {
   }
 });
 
-app.get("/api/user/:user", limiter, async (req, res) => {
+app.get("/api/user/:user", limiter, async (req, res, next) => {
   // Cache header for browsers
-  res.set('Cache-Control', 'public, max-age=300, s-maxage=600') 
+  res.set('Cache-Control', 'public, max-age=300, s-maxage=600') ;
+
+  const id = req.params.user;
+
+  const cache = userCache.get(id);
 
   // Manual cache
-  if (cacheTime && cacheTime > Date.now() - 30 * 1000) {
-    return res.json(cachedData);
+  if (cache) {
+    if (cache.cacheTime && cache.cacheTime > Date.now() - 30 * 1000) return res.json(cache.data); 
   }
-
-  //User ID
-  var id = req.params.user
-
+  
   try {
     const browser = await puppeteer.launch();
     const page = await browser.newPage();
@@ -110,7 +114,6 @@ app.get("/api/user/:user", limiter, async (req, res) => {
     await page.setJavaScriptEnabled(true);
 
     if(!isNaN(id)) {
-
       await page.goto("https://lolz.guru/members/" + id);
     }
     else {
@@ -124,36 +127,43 @@ app.get("/api/user/:user", limiter, async (req, res) => {
 
     const parsed = parse(content);
 
+    const title = parsed.querySelector("head").querySelector("title").rawText;
+
+    if (title.includes("Ошибка")) {
+      return res.status(404).json({ error: "User not found!" });
+    }
+
+    const classText = parsed.querySelector(".page_top").querySelector(".username").querySelector("span").getAttribute("class");
     const username = parsed.querySelector(".page_top").querySelector(".username").querySelector("span").rawText;
     const avatar = parsed.querySelector(".avatarScaler").querySelectorAll("img")[0].getAttribute("src");
     const lastSeen = parsed.querySelector(".page_top").querySelector(".profile_online").querySelector("abbr").rawText;
-    var status;
-    var isModer = false,
+    const role = getRole(classText);
+    let status;
+    let isModer = false,
       isMainModer = false,
       isAdmin = false;
 
-    if(parsed.querySelector(".page_top").querySelector(".current_text") != null) {
+    if (parsed.querySelector(".page_top").querySelector(".current_text")) {
       status = parsed.querySelector(".page_top").querySelector(".current_text").rawText;
+    } else {
+      status = null;
     }
-    else {
-      status = ""
-    }
-    if(parsed.querySelector("em.userBanner.moder") != null) {
+    if (parsed.querySelector("em.userBanner.moder")) {
       isModer = true
     }
 
-    if(parsed.querySelector("em.userBanner.main_moder") != null) {
+    if (parsed.querySelector("em.userBanner.main_moder")) {
       isMainModer = true
     }
 
-    if(parsed.querySelector("em.userBanner.admin") != null) {
+    if (parsed.querySelector("em.userBanner.admin")) {
       isAdmin = true
     }
 
     const messages = parsed.querySelector(".counts_module").querySelectorAll("a")[0].querySelector(".count").rawText;
-    const likes = parsed.querySelector(".counts_module").querySelectorAll("a")[1].querySelector(".count").rawText;
+    const likes = parsed.querySelector(".counts_module").querySelectorAll("a")[1].querySelector(".count").rawText.replace(" ", ",");
 
-    res.send({
+    const postJson = {
       username,
       avatar,
       status,
@@ -162,13 +172,17 @@ app.get("/api/user/:user", limiter, async (req, res) => {
         messages,
         likes
       },
+      role,
       isModer,
       isMainModer,
       isAdmin,
-    })
+    };
+    
+    userCache.set(id, { data: postJson, cacheTime: Date.now()});
 
+    res.send(postJson);
   } catch (error) {
-    return console.error("[ERROR]" + error);
+    return next(error);
   }
 });
 
@@ -179,6 +193,8 @@ function getRole(style) {
     return "unik"
   }
   switch (roleNum) {
+    case "3":
+      return "admin"
     case "22":
       return "market_seller";
     case "8":
@@ -203,5 +219,3 @@ app.use(middlewares.errorHandler);
 
 const port = process.env.PORT || 3000;
 app.listen(port, () => console.log(`Listening for requests on port ${port}`));
-
-
