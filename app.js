@@ -91,6 +91,86 @@ app.get("/api/latest", limiter, async (req, res) => {
   }
 });
 
+app.get("/api/user/:user", limiter, async (req, res) => {
+  // Cache header for browsers
+  res.set('Cache-Control', 'public, max-age=300, s-maxage=600') 
+
+  // Manual cache
+  if (cacheTime && cacheTime > Date.now() - 30 * 1000) {
+    return res.json(cachedData);
+  }
+
+  //User ID
+  var id = req.params.user
+
+  try {
+    const browser = await puppeteer.launch();
+    const page = await browser.newPage();
+
+    await page.setJavaScriptEnabled(true);
+
+    if(!isNaN(id)) {
+
+      await page.goto("https://lolz.guru/members/" + id);
+    }
+    else {
+      await page.goto("https://lolz.guru/" + id);
+    }
+    await page.waitForNavigation();
+
+    const content = await page.content();
+    await browser.close();
+
+
+    const parsed = parse(content);
+
+    const username = parsed.querySelector(".page_top").querySelector(".username").querySelector("span").rawText;
+    const avatar = parsed.querySelector(".avatarScaler").querySelectorAll("img")[0].getAttribute("src");
+    const lastSeen = parsed.querySelector(".page_top").querySelector(".profile_online").querySelector("abbr").rawText;
+    var status;
+    var isModer = false,
+      isMainModer = false,
+      isAdmin = false;
+
+    if(parsed.querySelector(".page_top").querySelector(".current_text") != null) {
+      status = parsed.querySelector(".page_top").querySelector(".current_text").rawText;
+    }
+    else {
+      status = ""
+    }
+    if(parsed.querySelector("em.userBanner.moder") != null) {
+      isModer = true
+    }
+
+    if(parsed.querySelector("em.userBanner.main_moder") != null) {
+      isMainModer = true
+    }
+
+    if(parsed.querySelector("em.userBanner.admin") != null) {
+      isAdmin = true
+    }
+
+    const messages = parsed.querySelector(".counts_module").querySelectorAll("a")[0].querySelector(".count").rawText;
+    const likes = parsed.querySelector(".counts_module").querySelectorAll("a")[1].querySelector(".count").rawText;
+
+    res.send({
+      username,
+      avatar,
+      status,
+      lastSeen,
+      stat: {
+        messages,
+        likes
+      },
+      isModer,
+      isMainModer,
+      isAdmin,
+    })
+
+  } catch (error) {
+    return console.error("[ERROR]" + error);
+  }
+});
 
 // First version of getting user roles
 function getRole(style) {
