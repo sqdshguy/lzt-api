@@ -71,6 +71,7 @@ app.get("/api/latest", limiter, async (req, res) => {
       const styleElem = post.querySelector(".secondRow").querySelector(".posterDate").querySelector(".username").firstChild;
       const style = styleElem.getAttribute('class');
       const userRole = getRole(style);
+      const link = "https://lolz.guru/" + post.getAttribute("href");
 
       postJson.push({
         title,
@@ -78,7 +79,8 @@ app.get("/api/latest", limiter, async (req, res) => {
         category,
         time,
         commentCount,
-        userRole
+        userRole,
+        link
       });
     }
     // Manual cache
