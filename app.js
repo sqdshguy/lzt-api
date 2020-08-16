@@ -209,6 +209,8 @@ function getRole(style) {
       return "legend";
     case "21":
       return "user";
+    case "4":
+      return "moder";
     default:
       return "user";
   }
